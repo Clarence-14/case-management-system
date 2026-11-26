@@ -61,17 +61,23 @@ try {
     $aiCategory = trim($_POST['ai_category'] ?? '') ?: $category;
     $aiUrgency = (int)($_POST['ai_urgency_score'] ?? 55);
     if ($aiUrgency < 1 || $aiUrgency > 100) $aiUrgency = 55;
-    $aiSummary = mb_substr($narrative, 0, 160) . (mb_strlen($narrative) > 160 ? '...' : '');
+    $detectedLanguage = trim($_POST['detected_language'] ?? 'English') ?: 'English';
+    $normalizedNarrative = trim($_POST['normalized_narrative'] ?? '') ?: $narrative;
+    $recommendedDivision = trim($_POST['recommended_division'] ?? 'Review & Investigation') ?: 'Review & Investigation';
+    $receiptOcrJson = trim($_POST['receipt_ocr_json'] ?? '') ?: null;
+    $aiSummary = mb_substr($normalizedNarrative, 0, 160) . (mb_strlen($normalizedNarrative) > 160 ? '...' : '');
 
     $stmt = $pdo->prepare("
         INSERT INTO complaints (
             ref_number, is_anonymous, complainant_name, complainant_email, complainant_phone,
             advocate_name, lsk_number, incident_date, county, category, ai_category,
-            ai_urgency_score, ai_summary, narrative, amount_involved, evidence_path, status
+            ai_urgency_score, ai_summary, narrative, original_narrative, detected_language,
+            recommended_division, receipt_ocr_json, amount_involved, evidence_path, status
         ) VALUES (
             :ref_number, :is_anonymous, :complainant_name, :complainant_email, :complainant_phone,
             :advocate_name, :lsk_number, :incident_date, :county, :category, :ai_category,
-            :ai_urgency_score, :ai_summary, :narrative, :amount_involved, :evidence_path, 'Received'
+            :ai_urgency_score, :ai_summary, :narrative, :original_narrative, :detected_language,
+            :recommended_division, :receipt_ocr_json, :amount_involved, :evidence_path, 'Received'
         )
     ");
 
@@ -89,7 +95,11 @@ try {
         'ai_category' => $aiCategory,
         'ai_urgency_score' => $aiUrgency,
         'ai_summary' => $aiSummary,
-        'narrative' => $narrative,
+        'narrative' => $normalizedNarrative,
+        'original_narrative' => $narrative,
+        'detected_language' => $detectedLanguage,
+        'recommended_division' => $recommendedDivision,
+        'receipt_ocr_json' => $receiptOcrJson,
         'amount_involved' => $amountInvolved,
         'evidence_path' => $evidencePath
     ]);

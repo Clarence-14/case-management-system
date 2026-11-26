@@ -41,9 +41,14 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
             </h1>
         </div>
-        <button type="button" class="btn btn-acc-gold" id="generateBriefBtn">
-            <i class="bi bi-stars me-2"></i>Generate AI Case Brief &amp; Notice to Show Cause
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-acc-gold" id="generateBriefBtn">
+                <i class="bi bi-stars me-1"></i>Generate AI Case Brief &amp; Notice
+            </button>
+            <button type="button" class="btn btn-acc-primary" id="draftChargeSheetBtn">
+                <i class="bi bi-file-earmark-text me-1"></i>Draft Tribunal Charge Sheet
+            </button>
+        </div>
     </div>
 
     <div class="row g-4">
@@ -81,8 +86,30 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
-                <h6 class="fw-bold text-uppercase small text-muted mt-4">Citizen Narrative</h6>
-                <p class="bg-light p-3 rounded-3 border mb-3"><?= nl2br(htmlspecialchars($case['narrative'])) ?></p>
+                <h6 class="fw-bold text-uppercase small text-muted mt-4">
+                    Citizen Narrative
+                    <span class="badge bg-light text-dark border ms-1"><?= htmlspecialchars($case['detected_language'] ?? 'English') ?></span>
+                    <span class="badge bg-dark text-warning ms-1"><?= htmlspecialchars($case['recommended_division'] ?? 'Review & Investigation') ?></span>
+                </h6>
+                <p class="bg-light p-3 rounded-3 border mb-2"><?= nl2br(htmlspecialchars($case['narrative'])) ?></p>
+                <?php if (!empty($case['original_narrative']) && $case['original_narrative'] !== $case['narrative']): ?>
+                    <details class="small text-muted mb-3">
+                        <summary class="fw-semibold cursor-pointer">View Original Verbatim Statement (<?= htmlspecialchars($case['detected_language']) ?>)</summary>
+                        <div class="p-2 mt-1 bg-white border rounded-2"><?= nl2br(htmlspecialchars($case['original_narrative'])) ?></div>
+                    </details>
+                <?php endif; ?>
+
+                <?php if (!empty($case['receipt_ocr_json'])): $ocr = json_decode($case['receipt_ocr_json'], true); ?>
+                    <?php if ($ocr): ?>
+                        <div class="p-2 mb-3 rounded-2 border bg-white small">
+                            <span class="badge <?= ($ocr['verification_status'] ?? '') === 'Verified Match' ? 'bg-success' : 'bg-danger' ?> me-2">
+                                <?= htmlspecialchars($ocr['verification_status'] ?? 'Scanned') ?>
+                            </span>
+                            Receipt OCR: <strong>KES <?= number_format((float)($ocr['receipt_amount'] ?? 0)) ?></strong> &middot;
+                            <?= htmlspecialchars($ocr['transaction_date'] ?? '') ?> (<?= htmlspecialchars($ocr['reference_code'] ?? '') ?>)
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
 
                 <?php if (!empty($case['evidence_path'])): ?>
                     <a href="<?= htmlspecialchars($case['evidence_path']) ?>" target="_blank" class="btn btn-sm btn-outline-dark">
@@ -98,6 +125,7 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="d-flex gap-2">
                         <button type="button" class="btn btn-sm btn-outline-dark" id="copyLetterBtn"><i class="bi bi-clipboard me-1"></i>Copy Letter</button>
                         <button type="button" class="btn btn-sm btn-acc-primary" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print Notice</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="closeBriefBtn" title="Close AI Analysis"><i class="bi bi-x-lg"></i></button>
                     </div>
                 </div>
 
@@ -109,8 +137,44 @@ require_once __DIR__ . '/includes/header.php';
                     <ul id="briefCitations" class="small mb-3"></ul>
                 </div>
 
-                <h6 class="fw-bold small text-uppercase text-muted no-print">Draft Notice to Show Cause</h6>
-                <pre id="briefLetter" class="bg-white p-4 border rounded-3 mb-0" style="white-space: pre-wrap; font-family: 'Times New Roman', Georgia, serif; font-size: 0.95rem;"></pre>
+                <h6 class="fw-bold small text-uppercase text-muted no-print">Draft Notice to Show Cause <span class="fw-normal text-lowercase">(editable)</span></h6>
+                <textarea id="briefLetter" class="form-control bg-white p-4 border rounded-3 mb-3" rows="12" style="font-family: 'Times New Roman', Georgia, serif; font-size: 0.95rem;"></textarea>
+
+                <div id="mediationAgendaBox" class="d-none mb-3 no-print">
+                    <h6 class="fw-bold small text-uppercase text-muted">Proposed IHADR Mediation Agenda</h6>
+                    <ul id="mediationAgendaList" class="small mb-0"></ul>
+                </div>
+
+                <div id="chargeSheetBox" class="d-none mb-3 no-print">
+                    <h6 class="fw-bold small text-uppercase text-muted">Advocates Disciplinary Tribunal — Draft Charge Sheet <span class="fw-normal text-lowercase">(editable)</span></h6>
+                    <textarea id="chargeSheetText" class="form-control bg-white p-3 border rounded-3 mb-0 small" rows="8"></textarea>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-3 border-top no-print">
+                    <span class="small text-muted" id="aiVerifiedStatus">
+                        <?= !empty($case['ai_verified_by']) ? '<i class="bi bi-check-circle-fill text-success me-1"></i>Verified by ' . htmlspecialchars($case['ai_verified_by']) : 'Pending Officer Sign-Off' ?>
+                    </span>
+                    <button type="button" class="btn btn-sm btn-success" id="verifyAiBtn">
+                        <i class="bi bi-shield-check me-1"></i>Verify &amp; Approve AI Output (Officer Sign-Off)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Advocate's Response & Rebuttal Contradiction Analyzer -->
+            <div class="acc-card p-4 mb-4 no-print">
+                <h5 class="fw-bold mb-2"><i class="bi bi-chat-square-quote me-2 text-warning"></i>Advocate's Response / Rebuttal Audit</h5>
+                <form id="advocateReplyForm" class="mb-3">
+                    <input type="hidden" name="complaint_id" value="<?= $case['id'] ?>">
+                    <input type="hidden" name="action" value="save_response">
+                    <textarea class="form-control mb-2" name="advocate_response" id="advocateResponseInput" rows="3" placeholder="Paste or log the respondent advocate's written reply..."><?= htmlspecialchars($case['advocate_response'] ?? '') ?></textarea>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-sm btn-outline-dark">Save Reply</button>
+                        <button type="button" class="btn btn-sm btn-acc-gold" id="runRebuttalAuditBtn">
+                            <i class="bi bi-search me-1"></i>Run AI Rebuttal Audit
+                        </button>
+                    </div>
+                </form>
+                <div id="rebuttalAuditResult" class="d-none bg-light p-3 rounded-3 border small"></div>
             </div>
         </div>
 
@@ -184,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     complainant_name: <?= json_encode($case['complainant_name']) ?>,
                     category: <?= json_encode($case['category']) ?>,
                     amount_involved: <?= json_encode($case['amount_involved']) ?>,
+                    ai_urgency_score: <?= (int)$case['ai_urgency_score'] ?>,
                     incident_date: <?= json_encode($case['incident_date']) ?>,
                     narrative: <?= json_encode($case['narrative']) ?>
                 })
@@ -197,7 +262,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 data.legal_citations.forEach(c => {
                     citList.innerHTML += `<li>${c}</li>`;
                 });
-                document.getElementById('briefLetter').textContent = data.draft_letter;
+                document.getElementById('briefLetter').value = data.draft_letter;
+
+                const medBox = document.getElementById('mediationAgendaBox');
+                const medList = document.getElementById('mediationAgendaList');
+                medList.innerHTML = '';
+                if (data.mediation_agenda && data.mediation_agenda.length > 0) {
+                    medBox.classList.remove('d-none');
+                    data.mediation_agenda.forEach(item => { medList.innerHTML += `<li>${item}</li>`; });
+                } else {
+                    medBox.classList.add('d-none');
+                }
                 showToast('AI Case Brief & Notice to Show Cause generated!');
             }
         } catch (e) {
@@ -209,8 +284,83 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('copyLetterBtn').addEventListener('click', () => {
-        const text = document.getElementById('briefLetter').textContent;
+        const text = document.getElementById('briefLetter').value;
         copyText(text, 'Notice to Show Cause copied!');
+    });
+
+    document.getElementById('closeBriefBtn').addEventListener('click', () => {
+        document.getElementById('aiBriefContainer').classList.add('d-none');
+    });
+
+    document.getElementById('draftChargeSheetBtn').addEventListener('click', async () => {
+        const res = await fetch('api/ai_analyze.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'charge_sheet',
+                ref_number: <?= json_encode($case['ref_number']) ?>,
+                advocate_name: <?= json_encode($case['advocate_name']) ?>,
+                lsk_number: <?= json_encode($case['lsk_number']) ?>,
+                complainant_name: <?= json_encode($case['complainant_name']) ?>,
+                narrative: <?= json_encode($case['narrative']) ?>
+            })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            document.getElementById('aiBriefContainer').classList.remove('d-none');
+            document.getElementById('chargeSheetBox').classList.remove('d-none');
+            document.getElementById('chargeSheetText').value = (data.charge_sheet_title || '') + '\n\n' + (data.counts || []).join('\n\n');
+            showToast('Tribunal Charge Sheet drafted!');
+        }
+    });
+
+    document.getElementById('verifyAiBtn').addEventListener('click', async () => {
+        const res = await fetch('api/update_case.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                complaint_id: <?= $case['id'] ?>,
+                action: 'verify_ai',
+                officer_name: <?= json_encode(getCurrentOfficer()['name'] ?? 'ACC Officer') ?>,
+                output_type: 'AI Brief / Charge Sheet'
+            })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            document.getElementById('aiVerifiedStatus').innerHTML = `<i class="bi bi-check-circle-fill text-success me-1"></i>Verified by ${data.verified_by}`;
+            showToast(data.message);
+        }
+    });
+
+    document.getElementById('advocateReplyForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const res = await fetch('api/update_case.php', { method: 'POST', body: new FormData(e.target) });
+        const data = await res.json();
+        showToast(data.message, data.status === 'ok' ? 'success' : 'error');
+    });
+
+    document.getElementById('runRebuttalAuditBtn').addEventListener('click', async () => {
+        const reply = document.getElementById('advocateResponseInput').value.trim();
+        const res = await fetch('api/ai_analyze.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'rebuttal_audit',
+                narrative: <?= json_encode($case['narrative']) ?>,
+                advocate_response: reply
+            })
+        });
+        const data = await res.json();
+        const box = document.getElementById('rebuttalAuditResult');
+        if (data.status === 'ok') {
+            box.classList.remove('d-none');
+            box.innerHTML = `<strong class="text-danger d-block mb-1">Factual Contradictions</strong><ul>${(data.contradictions || []).map(x => `<li>${x}</li>`).join('')}</ul>`
+                + `<strong class="text-warning-emphasis d-block mb-1">Unaddressed Claims</strong><ul>${(data.unaddressed_claims || []).map(x => `<li>${x}</li>`).join('')}</ul>`
+                + `<strong class="text-dark d-block mb-1">Missing Accounting / Records</strong><ul class="mb-0">${(data.missing_records || []).map(x => `<li>${x}</li>`).join('')}</ul>`;
+            showToast('AI Rebuttal Audit complete!');
+        } else {
+            showToast(data.message || 'Audit failed.', 'error');
+        }
     });
 
     document.getElementById('workflowForm').addEventListener('submit', async (e) => {

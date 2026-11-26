@@ -33,6 +33,8 @@ function getDB(): PDO {
         if (!$check) {
             initSchema($pdo);
             seedDatabase($pdo);
+        } else {
+            migrateSchema($pdo);
         }
     }
 
@@ -57,6 +59,12 @@ function initSchema(PDO $pdo): void {
             ai_urgency_score INTEGER DEFAULT 50,
             ai_summary TEXT,
             narrative TEXT NOT NULL,
+            original_narrative TEXT,
+            detected_language TEXT DEFAULT 'English',
+            recommended_division TEXT DEFAULT 'Review & Investigation',
+            receipt_ocr_json TEXT,
+            advocate_response TEXT,
+            ai_verified_by TEXT,
             amount_involved REAL DEFAULT 0,
             evidence_path TEXT,
             status TEXT DEFAULT 'Received',
@@ -75,6 +83,23 @@ function initSchema(PDO $pdo): void {
             FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE
         );
     ");
+}
+
+function migrateSchema(PDO $pdo): void {
+    $cols = $pdo->query("PRAGMA table_info(complaints)")->fetchAll(PDO::FETCH_COLUMN, 1);
+    $needed = [
+        'original_narrative' => "TEXT",
+        'detected_language' => "TEXT DEFAULT 'English'",
+        'recommended_division' => "TEXT DEFAULT 'Review & Investigation'",
+        'receipt_ocr_json' => "TEXT",
+        'advocate_response' => "TEXT",
+        'ai_verified_by' => "TEXT"
+    ];
+    foreach ($needed as $col => $def) {
+        if (!in_array($col, $cols, true)) {
+            $pdo->exec("ALTER TABLE complaints ADD COLUMN {$col} {$def}");
+        }
+    }
 }
 
 function seedDatabase(PDO $pdo): void {
@@ -250,11 +275,13 @@ function seedDatabase(PDO $pdo): void {
         INSERT INTO complaints (
             ref_number, is_anonymous, complainant_name, complainant_email, complainant_phone,
             advocate_name, lsk_number, incident_date, county, category, ai_category,
-            ai_urgency_score, ai_summary, narrative, amount_involved, status, assigned_officer, created_at
+            ai_urgency_score, ai_summary, narrative, original_narrative, detected_language,
+            recommended_division, advocate_response, amount_involved, status, assigned_officer, created_at
         ) VALUES (
             :ref_number, :is_anonymous, :complainant_name, :complainant_email, :complainant_phone,
             :advocate_name, :lsk_number, :incident_date, :county, :category, :ai_category,
-            :ai_urgency_score, :ai_summary, :narrative, :amount_involved, :status, :assigned_officer, :created_at
+            :ai_urgency_score, :ai_summary, :narrative, :original_narrative, :detected_language,
+            :recommended_division, :advocate_response, :amount_involved, :status, :assigned_officer, :created_at
         )
     ");
 
@@ -264,6 +291,24 @@ function seedDatabase(PDO $pdo): void {
     ");
 
     foreach ($seedCases as $c) {
+        $c['original_narrative'] = $c['original_narrative'] ?? $c['narrative'];
+        $c['detected_language'] = $c['detected_language'] ?? 'English';
+        $c['recommended_division'] = $c['recommended_division'] ?? ($c['ai_urgency_score'] >= 80 ? 'Prosecution (Tribunal)' : 'Review & Investigation');
+        $c['advocate_response'] = $c['advocate_response'] ?? null;
+
+        if ($c['ref_number'] === 'ACC-2026-1001') {
+            $c['recommended_division'] = 'Prosecution (Tribunal)';
+            $c['advocate_response'] = 'I acknowledge receipt of the Notice to Show Cause. The purchase price of KES 3,450,000 was received, however disbursement was delayed due to pending Land Control Board consent and routine bank compliance checks. I deny any misappropriation of client funds.';
+        } elseif ($c['ref_number'] === 'ACC-2026-1002') {
+            $c['detected_language'] = 'Kiswahili';
+            $c['original_narrative'] = 'Mwezi wa Agosti 2026 nilimlipa Wakili Salim Mwawasi ada ya KES 180,000 aniwakilishe katika kesi ya kibiashara Mombasa CMCC No. 412 of 2026. Hakufika mahakamani wala kuwasilisha utetezi ndani ya siku 14, na sasa wapiga mnada wanataka kukamata mali yangu.';
+        } elseif ($c['ref_number'] === 'ACC-2026-1005') {
+            $c['recommended_division'] = 'IHADR';
+        } elseif ($c['ref_number'] === 'ACC-2026-1007') {
+            $c['detected_language'] = 'Kiswahili';
+            $c['original_narrative'] = 'Baada ya ajali ya barabarani Machakos, kampuni ya bima ilitoa hundi ya fidia ya KES 960,000 kwa wakili wangu Adv. Faith Kalondu tarehe 10 Novemba 2026. Amekataa kunipa pesa zangu za matibabu.';
+        }
+
         $stmt->execute($c);
         $id = $pdo->lastInsertId();
         $noteStmt->execute([

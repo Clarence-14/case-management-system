@@ -63,6 +63,10 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="hidden" name="is_anonymous" id="isAnonymousInput" value="0">
                         <input type="hidden" name="ai_category" id="aiCategoryInput" value="">
                         <input type="hidden" name="ai_urgency_score" id="aiUrgencyInput" value="55">
+                        <input type="hidden" name="detected_language" id="detectedLangInput" value="English">
+                        <input type="hidden" name="normalized_narrative" id="normalizedNarrativeInput" value="">
+                        <input type="hidden" name="recommended_division" id="recommendedDivisionInput" value="Review & Investigation">
+                        <input type="hidden" name="receipt_ocr_json" id="receiptOcrInput" value="">
 
                         <!-- Complainant Details -->
                         <div id="complainantFields" class="row g-3 mb-4">
@@ -133,8 +137,9 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
 
                         <div class="mb-4">
-                            <label class="form-label fw-semibold small">Supporting Evidence (PDF, JPG, PNG — Max 5MB)</label>
-                            <input type="file" class="form-control" name="evidence" accept=".pdf,.jpg,.jpeg,.png">
+                            <label class="form-label fw-semibold small">Supporting Evidence / M-Pesa or Bank Receipt (PDF, JPG, PNG — Max 5MB)</label>
+                            <input type="file" class="form-control" name="evidence" id="evidenceInput" accept=".pdf,.jpg,.jpeg,.png">
+                            <div id="ocrResultBox" class="mt-2 d-none p-2 rounded-2 border bg-light small"></div>
                         </div>
 
                         <button type="submit" class="btn btn-acc-primary btn-lg w-100" id="submitBtn">
@@ -187,6 +192,10 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
 
                     <div id="aiResults" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="small text-muted">Language: <strong id="aiLangBadge" class="text-dark">English</strong></span>
+                            <span class="badge bg-light text-dark border" id="aiDivisionBadge">Review</span>
+                        </div>
                         <div class="mb-3">
                             <span class="small text-muted d-block">Suggested Category</span>
                             <div class="d-flex align-items-center justify-content-between mt-1">
@@ -284,6 +293,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.getElementById('aiUrgencyInput').value = data.urgency_score;
                     document.getElementById('aiUrgencyText').textContent = `${data.urgency_score}/100`;
                     document.getElementById('aiEngineName').textContent = data.engine || 'ACC Legal AI';
+                    document.getElementById('aiLangBadge').textContent = data.detected_language || 'English';
+                    document.getElementById('aiDivisionBadge').textContent = data.recommended_division || 'Review & Investigation';
+                    document.getElementById('detectedLangInput').value = data.detected_language || 'English';
+                    document.getElementById('normalizedNarrativeInput').value = data.normalized_narrative || narrative;
+                    document.getElementById('recommendedDivisionInput').value = data.recommended_division || 'Review & Investigation';
+                    window._jurisdictionStatus = data.jurisdiction_status || 'Within Mandate';
+                    window._jurisdictionNote = data.jurisdiction_note || '';
 
                     const badge = document.getElementById('aiSeverityBadge');
                     badge.textContent = data.severity_label;
@@ -326,9 +342,48 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast(`Applied category: ${suggested}`);
     });
 
-    // Form Submission
+    // Receipt / M-Pesa OCR Verification
+    document.getElementById('evidenceInput').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        const ocrBox = document.getElementById('ocrResultBox');
+        if (!file || !/\.(jpg|jpeg|png)$/i.test(file.name)) {
+            ocrBox.classList.add('d-none');
+            return;
+        }
+        ocrBox.classList.remove('d-none');
+        ocrBox.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Scanning receipt with AI Vision...';
+
+        const fd = new FormData();
+        fd.append('action', 'ocr_receipt');
+        fd.append('receipt', file);
+        fd.append('claimed_amount', amountInput.value || 0);
+        fd.append('advocate_name', document.querySelector('[name="advocate_name"]').value || '');
+
+        try {
+            const res = await fetch('api/ai_analyze.php', { method: 'POST', body: fd });
+            const ocr = await res.json();
+            if (ocr.status === 'ok') {
+                document.getElementById('receiptOcrInput').value = JSON.stringify(ocr);
+                const badgeCls = ocr.verification_status === 'Verified Match' ? 'bg-success' : 'bg-danger';
+                ocrBox.innerHTML = `<span class="badge ${badgeCls} me-2">${ocr.verification_status}</span>`
+                    + `Extracted: <strong>KES ${Number(ocr.receipt_amount).toLocaleString()}</strong> &middot; ${ocr.transaction_date} (${ocr.reference_code})`;
+            } else {
+                ocrBox.textContent = ocr.message || 'Could not scan receipt.';
+            }
+        } catch (err) {
+            ocrBox.textContent = 'Receipt OCR unavailable.';
+        }
+    });
+
+    // Form Submission with Jurisdiction Pre-Screener
+    let bypassJurisdiction = false;
     document.getElementById('complaintForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (!bypassJurisdiction && window._jurisdictionStatus === 'Advisory') {
+            document.getElementById('jurisdictionModalBody').textContent = window._jurisdictionNote;
+            new bootstrap.Modal(document.getElementById('jurisdictionModal')).show();
+            return;
+        }
         const btn = document.getElementById('submitBtn');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
@@ -357,6 +412,31 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.innerHTML = '<i class="bi bi-send-check me-2"></i>Submit Formal Complaint';
         }
     });
+});
+</script>
+
+<!-- Jurisdiction Advisory Modal -->
+<div class="modal fade" id="jurisdictionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning-subtle">
+                <h5 class="modal-title fw-bold"><i class="bi bi-info-circle-fill text-warning me-2"></i>ACC Mandate &amp; Jurisdiction Advisory</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="jurisdictionModalBody" class="mb-0"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Edit Complaint</button>
+                <button type="button" class="btn btn-acc-primary" onclick="document.getElementById('complaintForm').dispatchEvent(new Event('submit'));" id="proceedAnywayBtn">Proceed Anyway</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.getElementById('proceedAnywayBtn')?.addEventListener('click', () => {
+    window._jurisdictionStatus = 'Within Mandate';
+    bootstrap.Modal.getInstance(document.getElementById('jurisdictionModal'))?.hide();
 });
 </script>
 

@@ -65,7 +65,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
                 <div>
                     <h1 class="h3 fw-bold mb-0">ACC Officer &amp; Commissioner Dashboard</h1>
-                    <p class="text-muted small mb-0">AI-prioritized complaint triage &amp; repeat-offender monitoring</p>
+                    <p class="text-muted small mb-0">AI-prioritized complaint triage, division routing &amp; repeat-offender monitoring</p>
                 </div>
                 <a href="index.php" class="btn btn-acc-primary btn-sm">
                     <i class="bi bi-plus-lg me-1"></i>New Complaint
@@ -166,6 +166,11 @@ require_once __DIR__ . '/includes/header.php';
                                                 <?= htmlspecialchars($c['ref_number']) ?>
                                             </a>
                                             <div class="small text-muted"><?= htmlspecialchars($c['county']) ?></div>
+                                            <?php if (!$c['is_anonymous'] && (!empty($c['complainant_email']) || !empty($c['complainant_phone']))): ?>
+                                                <div class="small text-muted pii-maskable" style="font-size: 0.72rem;">
+                                                    <?= htmlspecialchars(trim($c['complainant_phone'] . ' ' . $c['complainant_email'])) ?>
+                                                </div>
+                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <div class="fw-semibold"><?= htmlspecialchars($c['advocate_name']) ?></div>
@@ -177,9 +182,10 @@ require_once __DIR__ . '/includes/header.php';
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <span class="small fw-medium"><?= htmlspecialchars($c['ai_category'] ?: $c['category']) ?></span>
+                                            <span class="small fw-medium d-block"><?= htmlspecialchars($c['ai_category'] ?: $c['category']) ?></span>
+                                            <span class="badge bg-light text-dark border mt-1"><?= htmlspecialchars($c['recommended_division'] ?? 'Review & Investigation') ?></span>
                                             <?php if ($c['amount_involved'] > 0): ?>
-                                                <div class="small text-muted">KES <?= number_format($c['amount_involved']) ?></div>
+                                                <div class="small text-muted mt-1">KES <?= number_format($c['amount_involved']) ?></div>
                                             <?php endif; ?>
                                         </td>
                                         <td>
@@ -221,6 +227,11 @@ require_once __DIR__ . '/includes/header.php';
                                         <?= htmlspecialchars($c['ref_number']) ?>
                                     </a>
                                     <div class="small text-muted"><?= htmlspecialchars($c['county']) ?></div>
+                                    <?php if (!$c['is_anonymous'] && (!empty($c['complainant_email']) || !empty($c['complainant_phone']))): ?>
+                                        <div class="small text-muted pii-maskable" style="font-size: 0.72rem;">
+                                            <?= htmlspecialchars(trim($c['complainant_phone'] . ' ' . $c['complainant_email'])) ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </div>
                                 <span class="badge <?= $scoreClass ?> px-2 py-1"><?= $score ?> / 100</span>
                             </div>

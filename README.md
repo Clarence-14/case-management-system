@@ -50,17 +50,21 @@ case-management-system/
 
 1. **Public Citizen Portal ([index.php](index.php)):**
    - Lodge a formal complaint with optional **Anonymous / Whistleblower** mode.
-   - Upload supporting evidence (`PDF`, `JPG`, `PNG` up to 5MB).
-   - **Live AI Intake Assistant:** Real-time misconduct classification, 1–100 urgency scoring, and missing-detail prompts as the citizen types.
+   - **Multilingual Intake (English / Kiswahili / Sheng):** Automatically detects language and normalizes statements into formal legal English while preserving the original verbatim statement.
+   - **ACC Mandate & Jurisdiction Pre-Screener:** Advises citizens if a grievance falls outside ACC's statutory mandate (e.g., Bill of Costs taxation or unqualified persons) while allowing them to proceed if misconduct is alleged.
+   - **Multimodal Receipt OCR:** Scans uploaded `JPG/PNG` receipts or M-Pesa screenshots via Gemini Vision (with offline fallback) to verify claimed KES amounts.
+   - **Live AI Intake Assistant:** Real-time misconduct classification, 1–100 urgency scoring, division routing prediction, and missing-detail prompts.
 2. **Public Case Tracker ([track.php](track.php)):**
    - Citizens enter their `ACC-2026-XXXX` reference number to view a visual progress stepper and activity timeline without logging in.
 3. **ACC Officer & Commissioner Dashboard ([admin.php](admin.php)):**
    - Protected by session authentication ([login.php](login.php)).
-   - Displays 5 KPIs, search/status filters, AI Urgency Scores, and **Repeat-Offender Flags** when an advocate appears in multiple complaints.
+   - Displays 5 KPIs, search/status filters, AI Urgency Scores, **Division Routing** (`IHADR`, `Review & Investigation`, `Prosecution (Tribunal)`), and **Repeat-Offender Flags** when an advocate appears in multiple complaints.
    - Responsive mobile card layout (`d-md-none`) to eliminate horizontal scrolling.
 4. **Case Detail & AI Workbench ([case_view.php](case_view.php)):**
-   - One-click **AI Case Brief & Notice to Show Cause** generator citing relevant sections of the *Advocates Act (Cap. 16, Laws of Kenya)*, with copy and print support.
-   - Update case status (`Received → Preliminary Triage → Under Investigation → Disciplinary Committee → Resolved / Dismissed`), assign Legal Officers, and add internal notes.
+   - One-click **AI Case Brief & Notice to Show Cause** generator (editable, copyable, and printable) citing the *Advocates Act (Cap. 16, Laws of Kenya)*, plus a **Proposed Mediation Agenda** for `IHADR` cases.
+   - **Disciplinary Tribunal Charge Sheet Drafter:** Generates editable, numbered Counts of Professional Misconduct mapped to Cap. 16 and LSK SOPPEC.
+   - **Advocate's Response & Rebuttal Audit:** Compares the respondent advocate's reply against the citizen's narrative to flag contradictions, unaddressed claims, and missing records.
+   - **Human-in-the-Loop Officer Sign-Off:** Logs timestamped officer verification of AI outputs into `case_notes`.
 5. **Integrity & Analytics Overview ([analytics.php](analytics.php)):**
    - Chart.js visualizations for complaints by misconduct category, monthly intake vs. resolution trends, and top flagged counties.
 

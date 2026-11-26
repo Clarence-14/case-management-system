@@ -68,5 +68,32 @@ if ($action === 'add_note') {
     exit;
 }
 
+if ($action === 'save_response') {
+    $reply = trim($input['advocate_response'] ?? '');
+    $upd = $pdo->prepare("UPDATE complaints SET advocate_response = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
+    $upd->execute([$reply, $id]);
+
+    $note = $pdo->prepare("INSERT INTO case_notes (complaint_id, author, note_type, content) VALUES (?, 'ACC Registry', 'Note', 'Advocate response / rebuttal logged for AI audit.')");
+    $note->execute([$id]);
+
+    echo json_encode(['status' => 'ok', 'message' => 'Advocate response saved.']);
+    exit;
+}
+
+if ($action === 'verify_ai') {
+    $officer = trim($input['officer_name'] ?? 'ACC Reviewing Officer');
+    $outputType = trim($input['output_type'] ?? 'AI Legal Output');
+    $stamp = $officer . ' @ ' . date('d M Y H:i');
+
+    $upd = $pdo->prepare("UPDATE complaints SET ai_verified_by = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
+    $upd->execute([$stamp, $id]);
+
+    $note = $pdo->prepare("INSERT INTO case_notes (complaint_id, author, note_type, content) VALUES (?, ?, 'AI Sign-Off', ?)");
+    $note->execute([$id, $officer, "Human-in-the-Loop Verification: Approved {$outputType}."]);
+
+    echo json_encode(['status' => 'ok', 'verified_by' => $stamp, 'message' => 'AI output verified and logged to audit trail.']);
+    exit;
+}
+
 http_response_code(400);
 echo json_encode(['status' => 'error', 'message' => 'Unknown action']);
