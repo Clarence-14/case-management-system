@@ -11,7 +11,7 @@ require_once __DIR__ . '/includes/header.php';
         <div class="row align-items-center g-4">
             <div class="col-lg-8">
                 <span class="badge acc-badge-gold px-3 py-2 rounded-1 mb-3">
-                    <i class="bi bi-stars me-1"></i> ACCOUNTABILITY &amp; JUSTICE REBOOTED
+                    ACCOUNTABILITY &amp; JUSTICE REBOOTED
                 </span>
                 <h1 class="display-5 fw-bold mb-3">Advocates Complaints Commission</h1>
                 <p class="lead text-white-50 mb-4" style="max-width: 680px;">
