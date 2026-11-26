@@ -6,15 +6,17 @@ A lightweight, full-stack, AI-powered Case Management System (CMS) built for the
 ---
 
 ## 1. Tech Stack
+
 - **Backend:** Pure PHP 8+ (PDO + SQLite, zero heavy frameworks)
 - **Database:** SQLite (`data/acc_cms.sqlite`) with automatic schema initialization and seeding
 - **Frontend:** HTML5, CSS3, Vanilla JavaScript (ES6+), Bootstrap 5.3, Bootstrap Icons, Chart.js
-- **Typography:** `Playfair Display` (headings & case references) + `Plus Jakarta Sans` (UI body)
+- **Typography:** `Cormorant Garamond` (headings & case references) + `DM Sans` (UI body)
 - **AI Engine:** Google Gemini (`gemini-2.5-flash`) via REST/cURL with an automatic deterministic PHP heuristic fallback engine
 
 ---
 
 ## 2. Project Structure
+
 ```text
 case-management-system/
 ├── api/
@@ -45,6 +47,7 @@ case-management-system/
 ---
 
 ## 3. Core Modules
+
 1. **Public Citizen Portal ([index.php](index.php)):**
    - Lodge a formal complaint with optional **Anonymous / Whistleblower** mode.
    - Upload supporting evidence (`PDF`, `JPG`, `PNG` up to 5MB).
@@ -64,11 +67,14 @@ case-management-system/
 ---
 
 ## 4. Setup & Installation (XAMPP)
+
 1. Place the project folder inside `c:\xampp\htdocs\case-management-system`.
 2. Copy `config.example.php` to `config.php`:
+
    ```bash
    cp config.example.php config.php
    ```
+
 3. *(Optional)* Add your `GEMINI_API_KEY` in `config.php` to enable live `gemini-2.5-flash` responses. If left empty, the built-in PHP heuristic AI engine handles all analysis offline.
 4. Start **Apache** in XAMPP and open:
    - **Citizen Portal:** `http://localhost/case-management-system/index.php`

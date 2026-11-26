@@ -13,14 +13,19 @@
 }
 
 body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: var(--acc-bg);
     color: #1E293B;
     line-height: 1.6;
 }
 
-h1, h2, h3, h4, .font-legal, .case-ref {
-    font-family: 'Playfair Display', Georgia, serif;
+h1,
+h2,
+h3,
+h4,
+.font-legal,
+.case-ref {
+    font-family: 'Cormorant Garamond', Georgia, serif;
 }
 
 /* Navbar */
@@ -28,17 +33,20 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     background-color: var(--acc-navy);
     border-bottom: 3px solid var(--acc-gold);
 }
+
 .acc-navbar .navbar-brand {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Cormorant Garamond', serif;
     font-weight: 700;
     color: #FFFFFF;
     letter-spacing: 0.3px;
 }
+
 .acc-navbar .nav-link {
     color: rgba(255, 255, 255, 0.85);
     font-weight: 500;
     transition: color 0.2s ease;
 }
+
 .acc-navbar .nav-link:hover,
 .acc-navbar .nav-link.active {
     color: var(--acc-gold);
@@ -51,6 +59,7 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     border-bottom: 4px solid var(--acc-gold);
     padding: 3.5rem 0;
 }
+
 .acc-badge-gold {
     background-color: var(--acc-gold-soft);
     color: var(--acc-gold);
@@ -67,6 +76,7 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     box-shadow: 0 2px 12px rgba(15, 30, 54, 0.04);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
 .acc-card-hover:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 24px rgba(15, 30, 54, 0.08);
@@ -79,17 +89,20 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     color: #FFFFFF;
     font-weight: 600;
 }
+
 .btn-acc-primary:hover {
     background-color: var(--acc-navy-light);
     border-color: var(--acc-navy-light);
     color: #FFFFFF;
 }
+
 .btn-acc-gold {
     background-color: var(--acc-gold);
     border-color: var(--acc-gold);
     color: var(--acc-navy);
     font-weight: 700;
 }
+
 .btn-acc-gold:hover {
     background-color: #b0891f;
     border-color: #b0891f;
@@ -101,6 +114,7 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     border-top: 4px solid var(--acc-gold);
     background: linear-gradient(180deg, #FFFFFF 0%, #FCFBF7 100%);
 }
+
 .ai-pulse {
     display: inline-block;
     width: 8px;
@@ -109,18 +123,51 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     background-color: var(--acc-gold);
     animation: pulse 1.8s infinite;
 }
+
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(197, 155, 39, 0.7); }
-    70% { box-shadow: 0 0 0 8px rgba(197, 155, 39, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(197, 155, 39, 0); }
+    0% {
+        box-shadow: 0 0 0 0 rgba(197, 155, 39, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 8px rgba(197, 155, 39, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(197, 155, 39, 0);
+    }
 }
 
 /* Status & Severity Badges */
-.badge-urgent { background-color: #FEE2E2; color: var(--acc-crimson); border: 1px solid #FCA5A5; }
-.badge-high { background-color: #FFEDD5; color: #C2410C; border: 1px solid #FDBA74; }
-.badge-medium { background-color: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }
-.badge-low { background-color: #E0F2FE; color: #0369A1; border: 1px solid #BAE6FD; }
-.badge-resolved { background-color: #DCFCE7; color: var(--acc-green); border: 1px solid #86EFAC; }
+.badge-urgent {
+    background-color: #FEE2E2;
+    color: var(--acc-crimson);
+    border: 1px solid #FCA5A5;
+}
+
+.badge-high {
+    background-color: #FFEDD5;
+    color: #C2410C;
+    border: 1px solid #FDBA74;
+}
+
+.badge-medium {
+    background-color: #FEF3C7;
+    color: #B45309;
+    border: 1px solid #FDE68A;
+}
+
+.badge-low {
+    background-color: #E0F2FE;
+    color: #0369A1;
+    border: 1px solid #BAE6FD;
+}
+
+.badge-resolved {
+    background-color: #DCFCE7;
+    color: var(--acc-green);
+    border: 1px solid #86EFAC;
+}
 
 /* Admin Sidebar */
 .admin-sidebar {
@@ -128,6 +175,7 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     min-height: calc(100vh - 60px);
     color: #FFFFFF;
 }
+
 .admin-sidebar .nav-link {
     color: rgba(255, 255, 255, 0.78);
     padding: 0.7rem 1rem;
@@ -135,6 +183,7 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     margin-bottom: 0.25rem;
     font-weight: 500;
 }
+
 .admin-sidebar .nav-link:hover,
 .admin-sidebar .nav-link.active {
     background-color: rgba(197, 155, 39, 0.16);
@@ -147,10 +196,12 @@ h1, h2, h3, h4, .font-legal, .case-ref {
     padding-left: 2rem;
     border-left: 2px solid var(--acc-border);
 }
+
 .acc-timeline-item {
     position: relative;
     margin-bottom: 1.5rem;
 }
+
 .acc-timeline-dot {
     position: absolute;
     left: -2.45rem;
@@ -165,9 +216,14 @@ h1, h2, h3, h4, .font-legal, .case-ref {
 
 /* Print Styles for Notice to Show Cause */
 @media print {
-    .no-print, .acc-navbar, .admin-sidebar, footer {
+
+    .no-print,
+    .acc-navbar,
+    .admin-sidebar,
+    footer {
         display: none !important;
     }
+
     .print-only-letter {
         border: none !important;
         box-shadow: none !important;
