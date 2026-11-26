@@ -136,8 +136,8 @@ require_once __DIR__ . '/includes/header.php';
                 </form>
             </div>
 
-            <!-- Case Queue Table -->
-            <div class="acc-card overflow-hidden">
+            <!-- Case Queue Table (Desktop / Tablet) -->
+            <div class="acc-card overflow-hidden d-none d-md-block">
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0">
                         <thead class="table-light small text-uppercase text-muted">
@@ -201,6 +201,59 @@ require_once __DIR__ . '/includes/header.php';
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- Case Queue Cards (Mobile View - No Horizontal Scroll) -->
+            <div class="d-md-none">
+                <?php if (empty($cases)): ?>
+                    <div class="acc-card p-4 text-center text-muted">No complaints match your filter.</div>
+                <?php else: ?>
+                    <?php foreach ($cases as $c): ?>
+                        <?php
+                        $isRepeat = isset($repeatAdvocates[strtolower(trim($c['advocate_name']))]);
+                        $score = (int)$c['ai_urgency_score'];
+                        $scoreClass = $score >= 80 ? 'badge-urgent' : ($score >= 60 ? 'badge-high' : ($score >= 40 ? 'badge-medium' : 'badge-low'));
+                        ?>
+                        <div class="acc-card p-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <a href="case_view.php?id=<?= $c['id'] ?>" class="case-ref fw-bold text-decoration-none text-dark fs-6">
+                                        <?= htmlspecialchars($c['ref_number']) ?>
+                                    </a>
+                                    <div class="small text-muted"><?= htmlspecialchars($c['county']) ?></div>
+                                </div>
+                                <span class="badge <?= $scoreClass ?> px-2 py-1"><?= $score ?> / 100</span>
+                            </div>
+
+                            <div class="mb-2">
+                                <div class="fw-semibold"><?= htmlspecialchars($c['advocate_name']) ?></div>
+                                <div class="small text-muted"><?= htmlspecialchars($c['lsk_number'] ?: 'LSK N/A') ?></div>
+                                <?php if ($isRepeat): ?>
+                                    <span class="badge badge-urgent mt-1">
+                                        <i class="bi bi-flag-fill me-1"></i>Repeat-Offender Flag (<?= $repeatAdvocates[strtolower(trim($c['advocate_name']))] ?> cases)
+                                    </span>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 small mb-3 pt-2 border-top">
+                                <div>
+                                    <span class="text-muted">Category:</span>
+                                    <span class="fw-medium"><?= htmlspecialchars($c['ai_category'] ?: $c['category']) ?></span>
+                                    <?php if ($c['amount_involved'] > 0): ?>
+                                        <div class="text-muted">KES <?= number_format($c['amount_involved']) ?></div>
+                                    <?php endif; ?>
+                                </div>
+                                <span class="badge <?= $c['status'] === 'Resolved' ? 'badge-resolved' : 'bg-light text-dark border' ?>">
+                                    <?= htmlspecialchars($c['status']) ?>
+                                </span>
+                            </div>
+
+                            <a href="case_view.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-acc-primary w-100">
+                                <i class="bi bi-folder2-open me-1"></i>Open Workbench
+                            </a>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </main>
     </div>
