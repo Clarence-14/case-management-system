@@ -46,7 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'is_acc_staff' => $staffRecord !== null,
             'role'         => $staffRecord ? $staffRecord['role'] : 'Citizen (LSK Member)',
         ];
-        header('Location: index.php');
+        $redirect = $_POST['redirect'] ?? $_GET['redirect'] ?? '';
+        // Only allow safe local relative redirects
+        if ($redirect && preg_match('/^[a-zA-Z0-9_.-]+(\?[a-zA-Z0-9_=&%-]+)?$/', $redirect)) {
+            header('Location: ' . $redirect);
+        } else {
+            header('Location: index.php');
+        }
         exit;
     } else {
         $error = 'Invalid LSK Practice Number or password. Please try again.';
@@ -76,6 +82,7 @@ require_once __DIR__ . '/includes/header.php';
             <?php endif; ?>
 
             <form method="POST" action="login.php">
+                <input type="hidden" name="redirect" value="<?= htmlspecialchars($_GET['redirect'] ?? $_POST['redirect'] ?? '') ?>">
                 <div class="mb-3">
                     <label class="form-label small fw-semibold">LSK Practice Number</label>
                     <input type="text" class="form-control" name="lsk_number" id="lskInput"

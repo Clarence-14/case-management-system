@@ -38,17 +38,21 @@ $user = getCurrentUser();
                         <i class="bi bi-file-earmark-plus me-1"></i>Lodge Complaint
                     </a>
                 </li>
+
+                <!-- Track Case: Reserved strictly for logged-in users -->
+                <?php if (isUserLoggedIn()): ?>
                 <li class="nav-item">
                     <a class="nav-link <?= $currentPage === 'track.php' ? 'active' : '' ?>" href="track.php">
                         <i class="bi bi-search me-1"></i>Track Case
                     </a>
                 </li>
+                <?php endif; ?>
 
                 <!-- Admin tab: only shown AND enforced server-side for ACC staff -->
                 <?php if (isAccStaff()): ?>
                 <li class="nav-item">
                     <a class="nav-link <?= in_array($currentPage, ['admin.php', 'case_view.php', 'analytics.php']) ? 'active' : '' ?>" href="admin.php">
-                        <i class="bi bi-shield-lock me-1"></i>Admin
+                        <i class="bi bi-shield-lock me-1"></i><?= isSeniorCounsel() ? 'Admin Desk' : 'My Assigned Cases' ?>
                     </a>
                 </li>
                 <?php endif; ?>
@@ -70,8 +74,10 @@ $user = getCurrentUser();
                                         <div class="text-muted" style="font-size:0.75rem;"><?= htmlspecialchars($user['lsk_number']) ?></div>
                                     <?php endif; ?>
                                     <div class="mt-1">
-                                        <?php if ($user['is_acc_staff']): ?>
-                                            <span class="badge bg-warning text-dark"><i class="bi bi-shield-check me-1"></i>ACC Staff</span>
+                                        <?php if (isSeniorCounsel()): ?>
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-award-fill me-1"></i>Senior Counsel</span>
+                                        <?php elseif ($user['is_acc_staff']): ?>
+                                            <span class="badge bg-primary"><i class="bi bi-shield-check me-1"></i>ACC Staff</span>
                                         <?php elseif (!empty($user['lsk_number'])): ?>
                                             <span class="badge bg-secondary">LSK Member</span>
                                         <?php else: ?>

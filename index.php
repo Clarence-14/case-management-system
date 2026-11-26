@@ -21,9 +21,15 @@ require_once __DIR__ . '/includes/header.php';
                     <a href="#complaintFormSection" class="btn btn-acc-gold px-4 py-2">
                         <i class="bi bi-pencil-square me-2"></i>Lodge a Complaint
                     </a>
+                    <?php if (isUserLoggedIn()): ?>
                     <a href="track.php" class="btn btn-outline-light px-4 py-2">
                         <i class="bi bi-search me-2"></i>Track Existing Case
                     </a>
+                    <?php else: ?>
+                    <a href="login.php?redirect=track.php" class="btn btn-outline-light px-4 py-2">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Sign In to Track Case
+                    </a>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="col-lg-4 d-none d-lg-block text-end">
@@ -157,9 +163,15 @@ require_once __DIR__ . '/includes/header.php';
                             <span class="case-ref fs-3 fw-bold text-dark" id="generatedRef">ACC-2026-XXXX</span>
                         </div>
                         <div class="d-flex justify-content-center gap-2">
+                            <?php if (isUserLoggedIn()): ?>
                             <a id="trackNowLink" href="track.php" class="btn btn-acc-primary">
                                 <i class="bi bi-search me-1"></i>Track Case Progress
                             </a>
+                            <?php else: ?>
+                            <a id="trackNowLink" href="login.php?redirect=track.php" class="btn btn-acc-primary">
+                                <i class="bi bi-box-arrow-in-right me-1"></i>Sign In to Track Case
+                            </a>
+                            <?php endif; ?>
                             <button type="button" class="btn btn-outline-secondary" onclick="location.reload()">
                                 Lodge Another
                             </button>
@@ -399,7 +411,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.target.classList.add('d-none');
                 document.getElementById('submissionSuccess').classList.remove('d-none');
                 document.getElementById('generatedRef').textContent = data.ref_number;
-                document.getElementById('trackNowLink').href = 'track.php?ref=' + encodeURIComponent(data.ref_number);
+                const isLoggedIn = <?= isUserLoggedIn() ? 'true' : 'false' ?>;
+                document.getElementById('trackNowLink').href = isLoggedIn
+                    ? ('track.php?ref=' + encodeURIComponent(data.ref_number))
+                    : ('login.php?redirect=' + encodeURIComponent('track.php?ref=' + data.ref_number));
                 showToast('Complaint submitted successfully!');
             } else {
                 showToast(data.message || 'Submission failed.', 'error');

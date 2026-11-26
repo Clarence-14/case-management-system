@@ -69,6 +69,8 @@ function initSchema(PDO $pdo): void {
             evidence_path TEXT,
             status TEXT DEFAULT 'Received',
             assigned_officer TEXT DEFAULT 'Unassigned',
+            step_completed_by TEXT,
+            step_completed_at TEXT,
             created_at TEXT DEFAULT (datetime('now', 'localtime')),
             updated_at TEXT DEFAULT (datetime('now', 'localtime'))
         );
@@ -92,6 +94,8 @@ function initSchema(PDO $pdo): void {
         );
     ");
     seedAccStaff($pdo);
+    $pdo->exec("UPDATE acc_staff SET role = 'Senior Counsel' WHERE role LIKE 'Senior Counsel%'");
+    $pdo->exec("UPDATE acc_staff SET role = 'Commission Secretary' WHERE role LIKE 'Commission Secretary%'");
 }
 
 function migrateSchema(PDO $pdo): void {
@@ -102,7 +106,9 @@ function migrateSchema(PDO $pdo): void {
         'recommended_division' => "TEXT DEFAULT 'Review & Investigation'",
         'receipt_ocr_json' => "TEXT",
         'advocate_response' => "TEXT",
-        'ai_verified_by' => "TEXT"
+        'ai_verified_by' => "TEXT",
+        'step_completed_by' => "TEXT",
+        'step_completed_at' => "TEXT"
     ];
     foreach ($needed as $col => $def) {
         if (!in_array($col, $cols, true)) {

@@ -5,14 +5,40 @@ requireOfficerLogin();
 require_once __DIR__ . '/includes/db.php';
 $pdo = getDB();
 
-// Fetch KPIs
-$totalComplaints = (int)$pdo->query("SELECT COUNT(*) FROM complaints")->fetchColumn();
-$urgentFlags = (int)$pdo->query("SELECT COUNT(*) FROM complaints WHERE ai_urgency_score >= 80 AND status NOT IN ('Resolved', 'Dismissed')")->fetchColumn();
-$pendingReview = (int)$pdo->query("SELECT COUNT(*) FROM complaints WHERE status IN ('Received', 'Preliminary Triage')")->fetchColumn();
-$assignedInvestigators = (int)$pdo->query("SELECT COUNT(*) FROM complaints WHERE status IN ('Under Investigation', 'Disciplinary Committee')")->fetchColumn();
-$resolvedCount = (int)$pdo->query("SELECT COUNT(*) FROM complaints WHERE status = 'Resolved'")->fetchColumn();
+$currentUser = getCurrentUser();
+$isSenior = isSeniorCounsel();
+$staffName = trim($currentUser['name'] ?? '');
 
-// Detect Repeat Offenders (Advocate name or LSK number appearing > 1 time)
+// Scope condition for non-Senior Counsel ACC staff
+$scopeWhere = "1=1";
+$scopeParams = [];
+if (!$isSenior) {
+    $scopeWhere = "LOWER(TRIM(assigned_officer)) LIKE LOWER(?)";
+    $scopeParams[] = $staffName . '%';
+}
+
+// Fetch KPIs (scoped to assigned cases for non-Senior Counsel)
+$kpiStmt = $pdo->prepare("SELECT COUNT(*) FROM complaints WHERE {$scopeWhere}");
+$kpiStmt->execute($scopeParams);
+$totalComplaints = (int)$kpiStmt->fetchColumn();
+
+$kpiStmt = $pdo->prepare("SELECT COUNT(*) FROM complaints WHERE {$scopeWhere} AND ai_urgency_score >= 80 AND status NOT IN ('Resolved', 'Dismissed')");
+$kpiStmt->execute($scopeParams);
+$urgentFlags = (int)$kpiStmt->fetchColumn();
+
+$kpiStmt = $pdo->prepare("SELECT COUNT(*) FROM complaints WHERE {$scopeWhere} AND status IN ('Received', 'Preliminary Triage')");
+$kpiStmt->execute($scopeParams);
+$pendingReview = (int)$kpiStmt->fetchColumn();
+
+$kpiStmt = $pdo->prepare("SELECT COUNT(*) FROM complaints WHERE {$scopeWhere} AND status IN ('Under Investigation', 'Disciplinary Committee')");
+$kpiStmt->execute($scopeParams);
+$assignedInvestigators = (int)$kpiStmt->fetchColumn();
+
+$kpiStmt = $pdo->prepare("SELECT COUNT(*) FROM complaints WHERE {$scopeWhere} AND status = 'Resolved'");
+$kpiStmt->execute($scopeParams);
+$resolvedCount = (int)$kpiStmt->fetchColumn();
+
+// Detect Repeat Offenders across database (helpful context even on assigned cases)
 $repeatAdvocates = [];
 $repStmt = $pdo->query("SELECT LOWER(TRIM(advocate_name)) as adv, COUNT(*) as cnt FROM complaints GROUP BY LOWER(TRIM(advocate_name)) HAVING cnt > 1");
 foreach ($repStmt->fetchAll() as $r) {
@@ -23,8 +49,8 @@ foreach ($repStmt->fetchAll() as $r) {
 $search = trim($_GET['q'] ?? '');
 $statusFilter = trim($_GET['status'] ?? '');
 
-$sql = "SELECT * FROM complaints WHERE 1=1";
-$params = [];
+$sql = "SELECT * FROM complaints WHERE {$scopeWhere}";
+$params = $scopeParams;
 if ($search !== '') {
     $sql .= " AND (ref_number LIKE ? OR advocate_name LIKE ? OR lsk_number LIKE ? OR category LIKE ?)";
     $like = "%{$search}%";
@@ -49,14 +75,18 @@ require_once __DIR__ . '/includes/header.php';
         <aside class="col-lg-2 d-none d-lg-block admin-sidebar p-3">
             <div class="small text-uppercase text-white-50 fw-bold mb-3 px-2">Commission Desk</div>
             <nav class="nav flex-column">
-                <a class="nav-link active" href="admin.php"><i class="bi bi-inbox-fill me-2"></i>Case Queue</a>
+                <a class="nav-link active" href="admin.php">
+                    <i class="bi bi-inbox-fill me-2"></i><?= $isSenior ? 'All Case Queue' : 'My Assigned Cases' ?>
+                </a>
                 <a class="nav-link" href="analytics.php"><i class="bi bi-bar-chart-line me-2"></i>Integrity Analytics</a>
                 <a class="nav-link" href="index.php"><i class="bi bi-globe me-2"></i>Public Portal</a>
                 <a class="nav-link" href="track.php"><i class="bi bi-search me-2"></i>Case Tracker</a>
+                <?php if ($isSenior): ?>
                 <hr class="border-secondary my-3">
                 <a class="nav-link text-warning" href="setup.php?reset=1" onclick="return confirm('Reset database to the 8 demo cases?')">
                     <i class="bi bi-arrow-counterclockwise me-2"></i>Reset Demo Data
                 </a>
+                <?php endif; ?>
             </nav>
         </aside>
 
@@ -64,13 +94,33 @@ require_once __DIR__ . '/includes/header.php';
         <main class="col-lg-10 p-4">
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
                 <div>
-                    <h1 class="h3 fw-bold mb-0">ACC Officer &amp; Commissioner Dashboard</h1>
-                    <p class="text-muted small mb-0">AI-prioritized complaint triage, division routing &amp; repeat-offender monitoring</p>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h1 class="h3 fw-bold mb-0">
+                            <?= $isSenior ? 'ACC Senior Counsel &amp; Commissioner Desk' : 'ACC Officer Assigned Workbench' ?>
+                        </h1>
+                        <?php if ($isSenior): ?>
+                            <span class="badge bg-warning text-dark"><i class="bi bi-award-fill me-1"></i>Senior Counsel</span>
+                        <?php else: ?>
+                            <span class="badge bg-primary"><i class="bi bi-person-badge me-1"></i><?= htmlspecialchars($currentUser['role']) ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        <?= $isSenior
+                            ? 'Full queue visibility, workflow stage control, and case assignment/reassignment across all staff.'
+                            : 'Showing only cases assigned to ' . htmlspecialchars($staffName) . '. Mark your current workflow step as completed inside each workbench.' ?>
+                    </p>
                 </div>
                 <a href="index.php" class="btn btn-acc-primary btn-sm">
                     <i class="bi bi-plus-lg me-1"></i>New Complaint
                 </a>
             </div>
+
+            <?php if (isset($_GET['error']) && $_GET['error'] === 'unassigned_case'): ?>
+                <div class="alert alert-warning alert-dismissible fade show small" role="alert">
+                    <i class="bi bi-shield-exclamation me-1"></i>Access restricted: You can only open cases assigned to you.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php endif; ?>
 
             <?php if (isset($_GET['msg']) && $_GET['msg'] === 'reset_ok'): ?>
                 <div class="alert alert-success alert-dismissible fade show small" role="alert">
@@ -83,7 +133,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="row g-3 mb-4">
                 <div class="col-6 col-md-4 col-xl">
                     <div class="acc-card p-3">
-                        <div class="small text-muted fw-semibold">Total Complaints</div>
+                        <div class="small text-muted fw-semibold"><?= $isSenior ? 'Total Complaints' : 'My Assigned Cases' ?></div>
                         <div class="fs-2 fw-bold text-dark"><?= $totalComplaints ?></div>
                     </div>
                 </div>
@@ -101,7 +151,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="col-6 col-md-6 col-xl">
                     <div class="acc-card p-3">
-                        <div class="small text-muted fw-semibold">Under Investigation</div>
+                        <div class="small text-muted fw-semibold">Active Investigation</div>
                         <div class="fs-2 fw-bold text-primary"><?= $assignedInvestigators ?></div>
                     </div>
                 </div>
@@ -146,13 +196,18 @@ require_once __DIR__ . '/includes/header.php';
                                 <th>Advocate &amp; LSK No.</th>
                                 <th>AI Category</th>
                                 <th>AI Urgency</th>
-                                <th>Status</th>
+                                <th>Assigned To</th>
+                                <th>Workflow Stage</th>
                                 <th class="text-end">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($cases)): ?>
-                                <tr><td colspan="6" class="text-center py-4 text-muted">No complaints match your filter.</td></tr>
+                                <tr>
+                                    <td colspan="7" class="text-center py-4 text-muted">
+                                        <?= $isSenior ? 'No complaints match your filter.' : 'No cases are currently assigned to you.' ?>
+                                    </td>
+                                </tr>
                             <?php else: ?>
                                 <?php foreach ($cases as $c): ?>
                                     <?php
@@ -166,11 +221,6 @@ require_once __DIR__ . '/includes/header.php';
                                                 <?= htmlspecialchars($c['ref_number']) ?>
                                             </a>
                                             <div class="small text-muted"><?= htmlspecialchars($c['county']) ?></div>
-                                            <?php if (!$c['is_anonymous'] && (!empty($c['complainant_email']) || !empty($c['complainant_phone']))): ?>
-                                                <div class="small text-muted pii-maskable" style="font-size: 0.72rem;">
-                                                    <?= htmlspecialchars(trim($c['complainant_phone'] . ' ' . $c['complainant_email'])) ?>
-                                                </div>
-                                            <?php endif; ?>
                                         </td>
                                         <td>
                                             <div class="fw-semibold"><?= htmlspecialchars($c['advocate_name']) ?></div>
@@ -192,9 +242,17 @@ require_once __DIR__ . '/includes/header.php';
                                             <span class="badge <?= $scoreClass ?> px-2 py-1"><?= $score ?> / 100</span>
                                         </td>
                                         <td>
+                                            <span class="small text-muted"><?= htmlspecialchars($c['assigned_officer']) ?></span>
+                                        </td>
+                                        <td>
                                             <span class="badge <?= $c['status'] === 'Resolved' ? 'badge-resolved' : 'bg-light text-dark border' ?>">
                                                 <?= htmlspecialchars($c['status']) ?>
                                             </span>
+                                            <?php if (!empty($c['step_completed_by'])): ?>
+                                                <div class="small text-success mt-1" style="font-size: 0.72rem;">
+                                                    <i class="bi bi-check2-circle me-1"></i>Step done
+                                                </div>
+                                            <?php endif; ?>
                                         </td>
                                         <td class="text-end">
                                             <a href="case_view.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-acc-primary">
@@ -209,10 +267,12 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
 
-            <!-- Case Queue Cards (Mobile View - No Horizontal Scroll) -->
+            <!-- Case Queue Cards (Mobile View) -->
             <div class="d-md-none">
                 <?php if (empty($cases)): ?>
-                    <div class="acc-card p-4 text-center text-muted">No complaints match your filter.</div>
+                    <div class="acc-card p-4 text-center text-muted">
+                        <?= $isSenior ? 'No complaints match your filter.' : 'No cases are currently assigned to you.' ?>
+                    </div>
                 <?php else: ?>
                     <?php foreach ($cases as $c): ?>
                         <?php
@@ -227,11 +287,6 @@ require_once __DIR__ . '/includes/header.php';
                                         <?= htmlspecialchars($c['ref_number']) ?>
                                     </a>
                                     <div class="small text-muted"><?= htmlspecialchars($c['county']) ?></div>
-                                    <?php if (!$c['is_anonymous'] && (!empty($c['complainant_email']) || !empty($c['complainant_phone']))): ?>
-                                        <div class="small text-muted pii-maskable" style="font-size: 0.72rem;">
-                                            <?= htmlspecialchars(trim($c['complainant_phone'] . ' ' . $c['complainant_email'])) ?>
-                                        </div>
-                                    <?php endif; ?>
                                 </div>
                                 <span class="badge <?= $scoreClass ?> px-2 py-1"><?= $score ?> / 100</span>
                             </div>
@@ -250,9 +305,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <div>
                                     <span class="text-muted">Category:</span>
                                     <span class="fw-medium"><?= htmlspecialchars($c['ai_category'] ?: $c['category']) ?></span>
-                                    <?php if ($c['amount_involved'] > 0): ?>
-                                        <div class="text-muted">KES <?= number_format($c['amount_involved']) ?></div>
-                                    <?php endif; ?>
+                                    <div class="text-muted">Assigned: <?= htmlspecialchars($c['assigned_officer']) ?></div>
                                 </div>
                                 <span class="badge <?= $c['status'] === 'Resolved' ? 'badge-resolved' : 'bg-light text-dark border' ?>">
                                     <?= htmlspecialchars($c['status']) ?>

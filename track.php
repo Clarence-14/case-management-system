@@ -1,5 +1,7 @@
 <?php
 $pageTitle = 'Track Your Case | ACC Kenya';
+require_once __DIR__ . '/includes/auth.php';
+requireLogin('login.php?redirect=track.php');
 require_once __DIR__ . '/includes/db.php';
 $pdo = getDB();
 
@@ -14,7 +16,7 @@ if ($searched) {
     $case = $stmt->fetch();
 
     if ($case) {
-        $nStmt = $pdo->prepare("SELECT * FROM case_notes WHERE complaint_id = ? AND note_type = 'Status Change' ORDER BY created_at ASC");
+        $nStmt = $pdo->prepare("SELECT * FROM case_notes WHERE complaint_id = ? AND note_type IN ('Status Change', 'Step Completed') ORDER BY created_at ASC");
         $nStmt->execute([$case['id']]);
         $notes = $nStmt->fetchAll();
     }
@@ -26,9 +28,9 @@ require_once __DIR__ . '/includes/header.php';
 <section class="py-5">
     <div class="container" style="max-width: 860px;">
         <div class="text-center mb-4">
-            <span class="badge acc-badge-gold px-3 py-2 rounded-1 mb-2">CITIZEN CASE TRACKER</span>
-            <h1 class="h2 fw-bold">Track Your Complaint Progress</h1>
-            <p class="text-muted">Enter your ACC Reference Number to view real-time status updates without logging in.</p>
+            <span class="badge acc-badge-gold px-3 py-2 rounded-1 mb-2">AUTHENTICATED CASE TRACKER</span>
+            <h1 class="h2 fw-bold">Track Complaint Progress</h1>
+            <p class="text-muted">Enter an ACC Reference Number to view real-time workflow milestones and status updates.</p>
         </div>
 
         <!-- Search Box -->

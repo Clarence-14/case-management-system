@@ -15,6 +15,13 @@ if (!$case) {
     exit;
 }
 
+if (!canAccessCase($case)) {
+    header('Location: admin.php?error=unassigned_case');
+    exit;
+}
+
+$isSenior = isSeniorCounsel();
+
 // Check repeat offender count
 $repStmt = $pdo->prepare("SELECT COUNT(*) FROM complaints WHERE LOWER(TRIM(advocate_name)) = LOWER(TRIM(?))");
 $repStmt->execute([$case['advocate_name']]);
@@ -31,7 +38,9 @@ require_once __DIR__ . '/includes/header.php';
 <div class="container py-4">
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2 no-print">
         <div>
-            <a href="admin.php" class="text-decoration-none small text-muted"><i class="bi bi-arrow-left me-1"></i>Back to Case Queue</a>
+            <a href="admin.php" class="text-decoration-none small text-muted">
+                <i class="bi bi-arrow-left me-1"></i><?= $isSenior ? 'Back to Case Queue' : 'Back to My Assigned Cases' ?>
+            </a>
             <h1 class="h2 fw-bold mb-0 mt-1">
                 <span class="case-ref"><?= htmlspecialchars($case['ref_number']) ?></span>
                 <?php if ($advocateCaseCount > 1): ?>
@@ -178,15 +187,31 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
 
-        <!-- Right Column: Workflow & Investigation Notes -->
+        <!-- Right Column: Role-Based Workflow & Investigation Notes -->
         <div class="col-lg-4 no-print">
+            <?php if ($isSenior): ?>
+            <!-- SENIOR COUNSEL ONLY: Workflow Progression & Officer Assignment -->
             <div class="acc-card p-4 mb-4">
-                <h5 class="fw-bold mb-3">Workflow &amp; Assignment</h5>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">Workflow &amp; Assignment</h5>
+                    <span class="badge bg-warning text-dark small"><i class="bi bi-award-fill me-1"></i>Senior Counsel</span>
+                </div>
+
+                <?php if (!empty($case['step_completed_by'])): ?>
+                    <div class="alert alert-success py-2 px-3 small mb-3">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        <strong>Step Completed:</strong> <?= htmlspecialchars($case['step_completed_by']) ?> marked <em><?= htmlspecialchars($case['status']) ?></em> complete
+                        <?php if (!empty($case['step_completed_at'])): ?>
+                            on <?= htmlspecialchars(date('d M Y, H:i', strtotime($case['step_completed_at']))) ?>.
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
                 <form id="workflowForm">
                     <input type="hidden" name="complaint_id" value="<?= $case['id'] ?>">
                     <input type="hidden" name="action" value="update_workflow">
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Case Status</label>
+                        <label class="form-label small fw-semibold">Case Workflow Stage</label>
                         <select class="form-select" name="status">
                             <?php foreach (CASE_STATUSES as $st): ?>
                                 <option value="<?= htmlspecialchars($st) ?>" <?= $case['status'] === $st ? 'selected' : '' ?>><?= htmlspecialchars($st) ?></option>
@@ -201,9 +226,58 @@ require_once __DIR__ . '/includes/header.php';
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <button type="submit" class="btn btn-acc-primary w-100">Update Workflow</button>
+                    <button type="submit" class="btn btn-acc-primary w-100">Update Workflow &amp; Reassignment</button>
                 </form>
             </div>
+            <?php else: ?>
+            <!-- ASSIGNED ACC STAFF: Read-Only Workflow Status + Mark Current Step Completed -->
+            <div class="acc-card p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">Assigned Workflow Step</h5>
+                    <span class="badge bg-primary small">Assigned Officer</span>
+                </div>
+
+                <div class="p-3 bg-light rounded-3 border mb-3 small">
+                    <div class="mb-2">
+                        <span class="text-muted d-block">Current Workflow Stage</span>
+                        <span class="badge <?= $case['status'] === 'Resolved' ? 'badge-resolved' : 'bg-dark text-warning' ?> fs-6 mt-1">
+                            <?= htmlspecialchars($case['status']) ?>
+                        </span>
+                    </div>
+                    <div>
+                        <span class="text-muted d-block">Assigned To</span>
+                        <strong><?= htmlspecialchars($case['assigned_officer']) ?></strong>
+                    </div>
+                </div>
+
+                <?php if (!empty($case['step_completed_by'])): ?>
+                    <div class="alert alert-success py-2 px-3 small mb-0">
+                        <i class="bi bi-check-circle-fill me-1"></i>
+                        You marked <strong><?= htmlspecialchars($case['status']) ?></strong> as completed
+                        <?php if (!empty($case['step_completed_at'])): ?>
+                            on <?= htmlspecialchars(date('d M Y, H:i', strtotime($case['step_completed_at']))) ?>.
+                        <?php endif; ?>
+                        <div class="mt-1 text-muted">Awaiting Senior Counsel to advance the workflow stage or reassign.</div>
+                    </div>
+                <?php elseif (in_array($case['status'], ['Resolved', 'Dismissed'], true)): ?>
+                    <div class="alert alert-secondary py-2 px-3 small mb-0">
+                        This case is closed (<strong><?= htmlspecialchars($case['status']) ?></strong>).
+                    </div>
+                <?php else: ?>
+                    <form id="completeStepForm">
+                        <input type="hidden" name="complaint_id" value="<?= $case['id'] ?>">
+                        <input type="hidden" name="action" value="complete_step">
+                        <div class="mb-2">
+                            <label class="form-label small fw-semibold">Completion Remarks for Senior Counsel</label>
+                            <textarea class="form-control form-control-sm" name="step_remarks" rows="2" placeholder="Summarize findings or deliverables completed for '<?= htmlspecialchars($case['status']) ?>'..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="bi bi-check2-circle me-1"></i>Mark '<?= htmlspecialchars($case['status']) ?>' Completed
+                        </button>
+                    </form>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
 
             <div class="acc-card p-4">
                 <h5 class="fw-bold mb-3">Investigation Notes</h5>
@@ -279,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Failed to generate AI brief.', 'error');
         } finally {
             generateBtn.disabled = false;
-            generateBtn.innerHTML = '<i class="bi bi-stars me-2"></i>Generate AI Case Brief & Notice to Show Cause';
+            generateBtn.innerHTML = '<i class="bi bi-stars me-1"></i>Generate AI Case Brief & Notice';
         }
     });
 
@@ -321,7 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({
                 complaint_id: <?= $case['id'] ?>,
                 action: 'verify_ai',
-                officer_name: <?= json_encode(getCurrentOfficer()['name'] ?? 'ACC Officer') ?>,
                 output_type: 'AI Brief / Charge Sheet'
             })
         });
@@ -363,18 +436,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('workflowForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const res = await fetch('api/update_case.php', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.status === 'ok') {
-            showToast(data.message);
-            setTimeout(() => location.reload(), 800);
-        } else {
-            showToast(data.message, 'error');
-        }
-    });
+    const workflowForm = document.getElementById('workflowForm');
+    if (workflowForm) {
+        workflowForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const res = await fetch('api/update_case.php', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                showToast(data.message);
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(data.message, 'error');
+            }
+        });
+    }
+
+    const completeStepForm = document.getElementById('completeStepForm');
+    if (completeStepForm) {
+        completeStepForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const res = await fetch('api/update_case.php', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                showToast(data.message);
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast(data.message, 'error');
+            }
+        });
+    }
 
     document.getElementById('noteForm').addEventListener('submit', async (e) => {
         e.preventDefault();

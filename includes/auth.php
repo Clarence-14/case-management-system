@@ -14,9 +14,25 @@ function isAccStaff(): bool {
     return !empty($_SESSION['user']['is_acc_staff']);
 }
 
+function isSeniorCounsel(): bool {
+    if (!isAccStaff()) {
+        return false;
+    }
+    $role = trim($_SESSION['user']['role'] ?? '');
+    $lsk  = strtoupper(trim($_SESSION['user']['lsk_number'] ?? ''));
+    return stripos($role, 'Senior Counsel') !== false || $lsk === 'LSK/2014/01001';
+}
+
 // Backwards-compatible alias
 function isOfficerLoggedIn(): bool {
     return isAccStaff();
+}
+
+function requireLogin(string $redirectTo = 'login.php'): void {
+    if (!isUserLoggedIn()) {
+        header('Location: ' . $redirectTo);
+        exit;
+    }
 }
 
 function requireAccStaff(): void {
@@ -47,6 +63,34 @@ function getCurrentUser(): array {
 
 function getCurrentOfficer(): array {
     return getCurrentUser();
+}
+
+/**
+ * Checks whether the current logged-in ACC staff member is assigned to a given complaint.
+ * Senior Counsel has access to all cases; other ACC staff only see cases assigned to them.
+ */
+function canAccessCase(array $case): bool {
+    if (!isAccStaff()) {
+        return false;
+    }
+    if (isSeniorCounsel()) {
+        return true;
+    }
+    $user = getCurrentUser();
+    $userName = trim($user['name'] ?? '');
+    $assigned = trim($case['assigned_officer'] ?? '');
+    if ($userName === '' || $assigned === '' || strcasecmp($assigned, 'Unassigned') === 0) {
+        return false;
+    }
+    // Match exact string or prefix (e.g., "Adv. Ochieng Otieno" matches "Adv. Ochieng Otieno (Investigations)")
+    return strcasecmp($assigned, $userName) === 0 || stripos($assigned, $userName) === 0;
+}
+
+/**
+ * Senior Counsel can assign and reassign all cases (her own, unassigned, and other staff's cases).
+ */
+function canReassignCase(array $case): bool {
+    return isSeniorCounsel();
 }
 
 function logoutUser(): void {
