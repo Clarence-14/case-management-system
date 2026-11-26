@@ -1,31 +1,55 @@
 <?php
 /**
- * Officer Authentication Helper
+ * Authentication & Role-Based Access Control (RBAC) Helper
  */
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-function isOfficerLoggedIn(): bool {
-    return !empty($_SESSION['acc_officer']);
+function isUserLoggedIn(): bool {
+    return !empty($_SESSION['user']);
 }
 
-function requireOfficerLogin(): void {
-    if (!isOfficerLoggedIn()) {
+function isAccStaff(): bool {
+    return !empty($_SESSION['user']['is_acc_staff']);
+}
+
+// Backwards-compatible alias
+function isOfficerLoggedIn(): bool {
+    return isAccStaff();
+}
+
+function requireAccStaff(): void {
+    if (!isUserLoggedIn()) {
         header('Location: login.php');
+        exit;
+    }
+    if (!isAccStaff()) {
+        http_response_code(403);
+        header('Location: index.php?error=unauthorized');
         exit;
     }
 }
 
-function getCurrentOfficer(): array {
-    return $_SESSION['acc_officer'] ?? [
-        'name' => 'ACC Officer',
-        'email' => 'officer@acc.go.ke',
-        'role' => 'Legal Officer'
+// Backwards-compatible alias
+function requireOfficerLogin(): void {
+    requireAccStaff();
+}
+
+function getCurrentUser(): array {
+    return $_SESSION['user'] ?? [
+        'name' => 'Guest',
+        'role' => 'Citizen',
+        'login_method' => 'none',
+        'is_acc_staff' => false
     ];
 }
 
-function logoutOfficer(): void {
+function getCurrentOfficer(): array {
+    return getCurrentUser();
+}
+
+function logoutUser(): void {
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
@@ -37,4 +61,8 @@ function logoutOfficer(): void {
     session_destroy();
     header('Location: login.php');
     exit;
+}
+
+function logoutOfficer(): void {
+    logoutUser();
 }

@@ -82,7 +82,16 @@ function initSchema(PDO $pdo): void {
             created_at TEXT DEFAULT (datetime('now', 'localtime')),
             FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS acc_staff (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lsk_number TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            is_active INTEGER DEFAULT 1
+        );
     ");
+    seedAccStaff($pdo);
 }
 
 function migrateSchema(PDO $pdo): void {
@@ -100,6 +109,37 @@ function migrateSchema(PDO $pdo): void {
             $pdo->exec("ALTER TABLE complaints ADD COLUMN {$col} {$def}");
         }
     }
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS acc_staff (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lsk_number TEXT UNIQUE NOT NULL,
+            full_name TEXT NOT NULL,
+            role TEXT NOT NULL,
+            is_active INTEGER DEFAULT 1
+        );
+    ");
+    seedAccStaff($pdo);
+}
+
+function seedAccStaff(PDO $pdo): void {
+    $count = (int)$pdo->query("SELECT COUNT(*) FROM acc_staff")->fetchColumn();
+    if ($count > 0) {
+        return;
+    }
+    $stmt = $pdo->prepare("INSERT INTO acc_staff (lsk_number, full_name, role, is_active) VALUES (?, ?, ?, 1)");
+    $stmt->execute(['LSK/2014/01001', 'Adv. Wanjiku Mwangi',        'Senior Counsel']);
+    $stmt->execute(['LSK/2012/00450', 'Commissioner Ochieng Otieno', 'Commission Secretary']);
+    $stmt->execute(['LSK/2016/05512', 'Adv. Ochieng Otieno',         'Investigations Officer']);
+    $stmt->execute(['LSK/2018/07234', 'Adv. Fatuma Hassan',           'Compliance Officer']);
+    $stmt->execute(['LSK/2015/04891', 'Adv. Kiprop Bett',             'Disciplinary Officer']);
+}
+
+function verifyAccStaff(string $lskNumber): ?array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT * FROM acc_staff WHERE UPPER(TRIM(lsk_number)) = UPPER(TRIM(?)) AND is_active = 1");
+    $stmt->execute([$lskNumber]);
+    $row = $stmt->fetch();
+    return $row ?: null;
 }
 
 function seedDatabase(PDO $pdo): void {
