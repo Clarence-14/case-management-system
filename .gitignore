@@ -1,0 +1,14 @@
+# Sensitive configuration & API keys
+config.php
+
+# Local SQLite database
+data/*.sqlite
+data/*.db
+
+# User-uploaded evidence files
+uploads/*
+!uploads/.gitkeep
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
